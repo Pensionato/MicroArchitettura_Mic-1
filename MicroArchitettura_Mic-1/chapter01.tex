@@ -1,4 +1,4 @@
-\chapter{Concetti Preliminari}
+\chapter{Microarchitettura Mic-1 e MAL}
 \section{Livello di Microarchitettura}
 Implementato sopra il livello logico digitale troviamo il livello di microarchitettura.
 In specifico tratteremo la microarchittettura di processore Mic-1 realizzata da Andrew S. Tanenbaum.
@@ -28,7 +28,7 @@ Possiamo distinguere 29 segnali divisibili in 5 gruppi per scopo.
 \item 1 segnale per indicare il prelievo della memoria tramite PC o MBR
 \end{itemize}
 In un ciclo di percorso dati i dati passano dai registri al bus B che li porta sulla ALU che a sua volta rende il risultato ai registri attraverso il Bus C. Un'eventuale lettura dati (su una delle due porte) trasmette dati che non possono essere usati al ciclo successivo ma al ciclo successivo+1. Questo perchè i dati vengono caricati nel MAR a fine ciclo quindi non possiamo aspettarci che siano atomicamente disponibili in MDR all'inizio del ciclo successivo. L'operazione di lettura richiede un ciclo e si possono eseeguire letture in sequenza durante cicli consecutivi. Si possono usare allo stesso tempo le porte di memoria ma leggere e scrivere simultaneamente genera risultati indefiniti. Mentre sul Bus B è abilitato sempre e solo un registro, su quello C ne possiamo abilitare diversi. L'informazione del Bus B viene codificatain 4 bit e tramite un decodificatore (4 a 16) si generano 16 segnali di controllo (7 inutilizzati).
-Il percorso dati in definitiva si controlla con 9+4+8+2+1=24 segnali(bit). In aggiunta a questi 24 bit di controllo ciclo sono necessari anche i campi NEXTADDRESS e JAM per capire cosa dev'essere fatto nel ciclo successivo. Per determinare i collegamenti e incroci tra chip (per ottimizzarli) si è sviluppato un possibile formato di 6 gruppi di un totale di 36 segnali.
+Il percorso dati in definitiva si controlla con 9+4+8+2+1=24 segnali(bit). In aggiunta a questi 24 bit di controllo ciclo sono necessari anche i campi NEXT ADDRESS e JAM per capire cosa dev'essere fatto nel ciclo successivo. Per determinare i collegamenti e incroci tra chip (per ottimizzarli) si è sviluppato un possibile formato di 6 gruppi di un totale di 36 segnali.
 \begin{itemize}
 \item Addr - Contiene indirizzo (address) di una possibile successiva Microistruzione
 \item JAM - Determina la selezione della successiva Microistruzione
@@ -40,7 +40,7 @@ Il percorso dati in definitiva si controlla con 9+4+8+2+1=24 segnali(bit). In ag
 \section{Unità di controllo microprogrammata}
 Nella descrizione della nostra architettura molte volte useremo circuiti standard a scopi didattici non ottimizzati. 
 Introduciamo ora il sequenzializzatore che determina la sequenza di operazioni per eseguire singolarmente le istruzioni ISA. Il sequenzializzatore ad ogni ciclo ci dà lo stato di ogni segnale di controllo del sistema e l'indirizzo della prossima microistruzione da eseguire. Il Mic-1 si può suddividere in due grandi parti: il percorso dati che è stato visto e la sezione di controllo. Il nucleo della sezione di controllo è la memoria di controllo. La memoria di controllo è un circuito (una serie di porte logiche) che memorizza Microistruzioni (da non confondere con istruzioni ISA). Nel Mic-1 la memoria è grande 512 parole (consistono nei 36 bit della Microistruzione).
-Le sequenze dei microprogrammi tendono ad essere brevi e per avere una flessibilità maggiore ogni microistruzione (solitamente) specifica il suo successore.
+Le sequenze dei microprogrammi tendono ad essere brevi e per avere una flessibilità maggiore ogni microistruzione (solitamente) specifica il suo succes sore.
 La memoria di controllo ha: un registro degli indirizzi MPC (MicroProgram Counter) ,il cui nome può risultare ambiguo perchè le istruzioni in realtà non hanno un ordine preciso, e un registro dei dati detto MIR (MicroIstruction Register). Il MIR contiene la microistruzione in esecuzione corrente, la quale determinerà il percorso dati.
 Il percorso totale del Mic-1 si può così descrivere:
 \begin{itemize}
@@ -52,8 +52,17 @@ Il percorso totale del Mic-1 si può così descrivere:
 \item Dopo un ulteriore $\Delta$z dallo Shifter si va al Bus C e l'output raggiunge i registri
 \item Nel quarto sottociclo vengono caricati i registri e i flip-flop N e Z, i risultati delle operazioni di memoria precedenti son quindi disponibili e lo stato di MPC viene aggiornato.
 \end{itemize}
-
-
+Non necessariamente l'ordine delle istruzioni riflette l'ordine che hanno nella memoria di controllo, è compito del microprogramma determinare l'ordine. Innanzi tutto il MIR deve essere diventato stabile. In un primo momento i 9 bit del campo NEXT ADDRESS vengono copiati in MPC, durante ciò si vede il contenuto del campo JAM e se il suo contenuto è 000 non si esegue altro; a fine copia MPC punta alla microistruzione successiva. Se uno o più bit di JAM valgono 1 (JAMN, JAMZ o JMPC) si eseguono ulteriori azioni. Con JAMN abilitato si calcola l'OR logico con il flip-flop N e si salva il risultato nel bit più significativo di MPC. Si fa lo stesso se è abilitato JAMZ ma l'OR si calcola con il flip-flop Z. Se entrambi sono abilitati si calcola l'OR con entrambe. Sul fronte di salita del clock il Bus B non viene alimentato e gli output della ALU possono non vengono considerati corretti; N e Z ci sono d'aiuto in questo caso perchè salvano i flag della ALU. Per stabilizzare i valori nei flip-flop si usa la funzione nel ''Bit Alto'': 
+F= (JAMZ AND Z) OR (JAMN AND N) OR NEXT ADDRESS[8]. Il risultato poi va nel MPC che potrà assumere il valore di NEXT ADDRESS oppure il valore di NEXT ADDRESS nel quale il bit più significativo viene calcolato in OR con 1(0x100) nel caso in cui NEXT ADDRESS sia minore o uguale a 0xFF. Se invece JMPC è abilitato (posto ad 1) gli 8 bit di MBR vengono collegati in OR con gli 8 bit meno significativi del campo NEXT ADDRESS della microistruzione precedente e il risultato viene mandato a MPC. Sempre quando JMPC vale 1 viene fatto l'OR di MBR e NEXT ADDRESS in una parte di circuito chiamata ''O'' ; nel caso in cui valga 0 passa direttamente a MPC. MBR tipicamente contiene codice operativo e JMPC ci da l'indirizzo della prossima istruzione da eseguire (utile per i salti). Vediamo ora le tempistiche in termini di sottociclo:
+\begin{itemize}
+\item Durante il primo sottociclo (primo fronte di discesa del clock) la microistruzione contenuta in MPC viene caricata nel MIR
+\item Nel secondo sottociclo da MIR i segnali si propagano verso i registri e se ne seleziona uno che poi viene caricato dentro MIR
+\item Al terzo sottociclo ALU e Shifter possono operare e dare un risultato stabile
+\item Nel quarto sottociclo Bus C, bus di memoria e valori della ALU diventano stabili.
+\item Sul fronte di salita il contenuto del Bus C viene caricato nei registri, i flip-flop N e Z vengono caricati, MBR e MDR ottengono eventualmente risultati del ciclo di percorso dati precedente. Quando MBR e MDR sono stabili viene caricato MPC con la prossima microistruzione (da notare che MPC non va caricato sinchè non sono pronti i registri da cui dipende)
+\item Quando il clock scende nuovamente MPC da inizio ad un nuovo ciclo
+\end{itemize}
+MPC può non venire implementato come registro perchè in realtà non c'è bisogno di memorizzare nessun valore al suo interno avendo tutti già tutti i segnali, per questo si può considerare un registro virtuale. 
 
 
 

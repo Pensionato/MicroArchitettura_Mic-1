@@ -1,0 +1,11 @@
+\chapter{IJVM}
+\section{Concetti Preliminari}
+Il livello ISA della nostra macchina interpretato dal MAL ed eseguito sarà l'IJVM.
+Per memorizzare le variabili si usa una parte della memoria chiamata stack al cui interno le variabili non hanno un indirizzo assoluto. Viene impostato un registro LV (Local Variable) che punta alla base delle variabili locali per la procedura attuale. UN altro registro SP (Stack Pointer) punta alla parola in cima allo stack. Per far riferimento alle variabili locali si fornisce il loro offset rispetto a LV. La struttura dati delimitata da LV e Sp viene chiamata: Blocco delle variabili locali. Considerando due procedure A e B (dove A richiama B) nello stack troveremo memorizzato il blocco di A con sopra il blocco di B. Quando verrà richiamata B vedremo LV che punta alla base del blocco B e SP in cima allo stesso blocco. Alla chiusura di B il controllo passa ad A ed LV e Sp punteranno al blocco A. Lo stack può pure memorizzare gli operandi durante un operazioni matematiche e il blocco riservato a questo utilizzo si chiama Stack degli operandi. Durante operazioni matematiche ad SP viene incrementato per puntare all'indirizzo del primo operando sullo stack, LV rimane invariato.
+\section{Modello di Memoria IJVM}
+La memoria dell'architettura IJVM consiste in un array di 4 Giga Byte o circa 1 miliardo di parole di 4 byte.
+A livello ISA-IJVM non sono visibili gli indirizzi di memoria assoluti, si usano indirizzi che poi serviranno come base per dei puntatori. Per accedere alla memoria è quindi necessario indicizzarla tramite questi puntatori.
+Possiamo dividere le parti di memoria IJVM in:
+\begin{enumerate}
+\item
+\end{enumerate} 
