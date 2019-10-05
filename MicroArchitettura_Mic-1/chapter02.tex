@@ -4,8 +4,73 @@ Il livello ISA della nostra macchina interpretato dal MAL ed eseguito sarà l'IJ
 Per memorizzare le variabili si usa una parte della memoria chiamata stack al cui interno le variabili non hanno un indirizzo assoluto. Viene impostato un registro LV (Local Variable) che punta alla base delle variabili locali per la procedura attuale. UN altro registro SP (Stack Pointer) punta alla parola in cima allo stack. Per far riferimento alle variabili locali si fornisce il loro offset rispetto a LV. La struttura dati delimitata da LV e Sp viene chiamata: Blocco delle variabili locali. Considerando due procedure A e B (dove A richiama B) nello stack troveremo memorizzato il blocco di A con sopra il blocco di B. Quando verrà richiamata B vedremo LV che punta alla base del blocco B e SP in cima allo stesso blocco. Alla chiusura di B il controllo passa ad A ed LV e Sp punteranno al blocco A. Lo stack può pure memorizzare gli operandi durante un operazioni matematiche e il blocco riservato a questo utilizzo si chiama Stack degli operandi. Durante operazioni matematiche ad SP viene incrementato per puntare all'indirizzo del primo operando sullo stack, LV rimane invariato.
 \section{Modello di Memoria IJVM}
 La memoria dell'architettura IJVM consiste in un array di 4 Giga Byte o circa 1 miliardo di parole di 4 byte.
-A livello ISA-IJVM non sono visibili gli indirizzi di memoria assoluti, si usano indirizzi che poi serviranno come base per dei puntatori. Per accedere alla memoria è quindi necessario indicizzarla tramite questi puntatori.
+A livello ISA-IJVM non sono visibili gli indirizzi di memoria assoluti, si usano indirizzi che poi serviranno come base per dei puntatori. Per accedere alla memoria è quindi necessario indicizzarla tramite questi puntatori. La parte di stack della memoria non può superare una certa dimensione stabilita all'inizio al momento di compilazione.
 Possiamo dividere le parti di memoria IJVM in:
 \begin{enumerate}
-\item
-\end{enumerate} 
+\item Porzione costante di memoria (Costant Pool): viene chiamata costante perchè caricata prima che il programma venga mandato in esecuzione e rimane tale e non modificabile dopo. Contiene costanti, stringhe e puntatori a memoria. Esiste un registro CPP (Costant Pool Pointer) che contiene l'indirizzo della prima parola della Porzione costante di memoria
+\item Blocco delle variabili locali (Local Variable Frame): questa parte di memoria è necessaria alla allocazione di spazio per le chiamate dei metodi. Inizialmente vengono memorizzati i parametri dei metodi. Il registro LV (Local Variable) contiene l'indirizzo della prima locazione del blocco.
+\item Stack degli operandi (Operand Stack): Sopra il Blocco delle variabili locali si trova lo stack degli operandi. Esiste un registro SP (Stack Pointer) che contiene l'indirizzo della parola in cima allo stack. E' importante notare che a livello implementativo lo Stack degli operandi fa parte del Blocco delle variabili.
+\item Area dei Metodi (Method Area): è l'area dove risiede il programma da eseguire.  L'indirizzo dell'istruzione successiva da prelevare (fetching) è contenuto nel registro PC (Program Counter). A differenze delle altri parti quest'area è rappresentata come un vettore di byte.0 
+\end{enumerate}
+I registri CPP, LV ed SP sono tutti puntatori a parole (4 byte) e non a singoli byte, un eventuale incremento di SP corrisponde a prelevare la parola successiva e l'inizio di una lettura. PC invece contiene l'indirizzo espresso in byte, la sua porta infatti è larga 1 byte. Il prelevamento (Fetching) del byte successivo corrisponde ad un incremento di PC e l'inizio di una lettura.
+\section{Set Istruzioni IJVM}
+Le istruzioni IJVM hanno una codifica esadecimale, sono composte da un codice operativo (assembly) e in alcuni casi un operando, che può essere una costante o uno spiazzamento. Di seguito son qui listate le istruzioni, i campi vuoti negli Operandi indicano la non presenza.
+\begin{center}
+  \begin{tabular}{ l | l | l | p{5cm}}
+    \hline
+    Hex & Codice & Operandi & Funzione \\
+    \hline
+    0x10 & BIPUSH & byte & Scrive un byte in cima allo stack \\
+    \hline
+    0x59 & DUP &  & Legge e inserisce un ulteriore volta la parola in cima allo stack (duplica) \\ 
+    \hline
+    0xA7 & GOTO & offset & Salto incondizionato \\
+    \hline
+    0x60 & IADD  &  & Preleva le prime due parole in cima allo stack e restituisce la loro somma \\
+    \hline
+    0x7E & IAND &  & Preleva le prime due parole in cima allo stack e restituisce il loro AND  \\
+    \hline
+    0x99 & IFEQ & offset & Preleva la parola in cima allo stack e fa un salto se vale 0 \\
+    \hline
+    0x9B & IFLT & offset & Preleva la parola in cima allo stack e fa un salto se ha valore negativo \\
+    \hline
+    0x9F  & IF\textunderscore ICMPEQ & offset & Preleva la parola in cima allo stack e fa un salto se 																  sono uguali \\
+    \hline
+    0x84  & IINC & varnum const & Somma una costante a una variabile locale \\
+    \hline
+    0x15  & ILOAD & varnum & Scrive una variabile locale in cima allo stack \\
+    \hline
+    0xB6  & INVOKEVIRUAL & disp & Invoca un metodo \\
+    \hline
+    0x80  & IOR & & Preleva le prime due parole in cima allo stack e restituisce il loro OR \\
+    \hline
+    0xAC  & IRETURN  &  & Termina un metodo restituendo un valore intero \\
+    \hline
+    0x36  & ISTORE & varnum &  Preleva una parola in cima allo stack e la memorizza in una variabile 											locale \\
+    \hline
+    0x64  & ISUB & & Preleva le prime due parole in cima allo stack e restituisce la loro differenza \\
+    \hline
+    0x13  & LDC\textunderscore W & index & Scrive in cima allo stack una costante prelevata dalla 															porzione costante di memoria\\
+    \hline
+   0x00   & NOP & & Nessuna operazione \\    
+   \hline
+   0x57   & POP & & Rimuove una parola dalla cima dello stack \\
+    \hline
+   0x5F  & SWAP & & Scambia la posizione delle due parole in cima allo stack \\
+    \hline
+   0xC4   & WIDE & & Istruzione Prefissa: l'istruzione seguente ha un indice a 16 bit \\
+    \hline
+  \end{tabular}
+\end{center}
+
+
+
+
+
+
+
+
+
+
+
+ 
